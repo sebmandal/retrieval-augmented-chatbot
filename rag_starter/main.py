@@ -1,5 +1,9 @@
 import json
 import openai
+import os
+import shutil
+from datetime import datetime
+from tqdm import tqdm
 
 from rag_starter.config import (
     OPENAI_API_KEY,
@@ -65,22 +69,51 @@ def find_similar(embeddings, target_embedding):
     return results[:5]
 
 
+def backup_embeddings():
+    """
+    Creates a timestamped backup of the existing embeddings file if it exists.
+    """
+    if os.path.exists(EMBEDDINGS_FILE_PATH):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = f"{EMBEDDINGS_FILE_PATH}.{timestamp}.bak"
+        shutil.copy(EMBEDDINGS_FILE_PATH, backup_path)
+        print(f"Backup created: {backup_path}")
+
+
 def process_embeddings():
     """
     Reads the input text, splits it into chunks, creates embeddings,
-    and writes the embeddings to a JSON file.
+    and writes the embeddings to a JSON file with a progress bar.
     """
     with open(INPUT_FILE_PATH, "r", encoding="utf-8") as f:
         text = f.read()
+
     chunks = split_text_into_chunks(text)
+    total_chunks = len(chunks)
     embeddings = []
 
     if input("Overwrite old embeddings? (y/n): ").strip().lower() == "y":
-        for i, chunk in enumerate(chunks):
-            print(f"Processing chunk {i+1}")
-            emb_data = create_embedding_for_text(chunk)
-            for em in emb_data:
-                embeddings.append({"text": chunk, "embedding": em.embedding})
+        backup_embeddings()
+
+        with tqdm(total=total_chunks,
+                  desc="Generating embeddings",
+                  ncols=80,
+                  dynamic_ncols=True,
+                  leave=False,
+                  bar_format=
+                  "{l_bar}{bar} {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+                  ) as pbar:
+            for chunk in chunks:
+                emb_data = create_embedding_for_text(chunk)
+                for em in emb_data:
+                    embeddings.append({
+                        "text": chunk,
+                        "embedding": em.embedding
+                    })
+                pbar.update(1)
+
+        print("\nEmbeddings saved successfully.")
+
         with open(EMBEDDINGS_FILE_PATH, "w", encoding="utf-8") as f:
             json.dump(embeddings, f)
     else:
