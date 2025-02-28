@@ -65,7 +65,6 @@ def find_similar(embeddings, target_embedding):
         sim = similarity(emb["embedding"], target_vector)
         results.append((emb["text"], sim))
     results.sort(key=lambda x: x[1], reverse=True)
-    print(results[:5])
     return results[:5]
 
 
