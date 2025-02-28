@@ -79,75 +79,70 @@ def backup_embeddings():
         print(f"Backup created: {backup_path}")
 
 
-def process_embeddings():
+def train(training_input):
     """
     Reads the input text, splits it into chunks, creates embeddings,
     and writes the embeddings to a JSON file with a progress bar.
     """
-    with open(INPUT_FILE_PATH, "r", encoding="utf-8") as f:
+    with open(training_input, "r", encoding="utf-8") as f:
         text = f.read()
 
     chunks = split_text_into_chunks(text)
     total_chunks = len(chunks)
     embeddings = []
 
-    if input("Overwrite old embeddings? (y/n): ").strip().lower() == "y":
-        backup_embeddings()
+    backup_embeddings()
 
-        with tqdm(total=total_chunks,
-                  desc="Generating embeddings",
-                  ncols=80,
-                  dynamic_ncols=True,
-                  leave=False,
-                  bar_format=
-                  "{l_bar}{bar} {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
-                  ) as pbar:
-            for chunk in chunks:
-                emb_data = create_embedding_for_text(chunk)
-                for em in emb_data:
-                    embeddings.append({
-                        "text": chunk,
-                        "embedding": em.embedding
-                    })
-                pbar.update(1)
+    with tqdm(
+            total=total_chunks,
+            desc="Generating embeddings",
+            ncols=80,
+            dynamic_ncols=True,
+            leave=False,
+            bar_format="{l_bar}{bar} {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+    ) as pbar:
+        for chunk in chunks:
+            emb_data = create_embedding_for_text(chunk)
+            for em in emb_data:
+                embeddings.append({"text": chunk, "embedding": em.embedding})
+            pbar.update(1)
 
-        print("\nEmbeddings saved successfully.")
+    print("\nEmbeddings saved successfully.")
 
-        with open(EMBEDDINGS_FILE_PATH, "w", encoding="utf-8") as f:
-            json.dump(embeddings, f)
-    else:
-        print("Skipping embedding generation.")
+    with open(EMBEDDINGS_FILE_PATH, "w", encoding="utf-8") as f:
+        json.dump(embeddings, f)
+
+    return json.dumps(embeddings)
 
 
-def interactive_chat():
+def open_thread():
     """
-    Loads the embeddings and starts an interactive chat loop.
+    Returns a unique thread ID.
+    """
+    thread_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return thread_id
+
+
+def send_message(message, thread_id):
+    """
+    Sends a message to the chat model and returns the conversation as a list.
     """
     with open(EMBEDDINGS_FILE_PATH, "r", encoding="utf-8") as f:
         embeddings = json.load(f)
+
     messages = [{"role": "system", "content": CHAT_INSTRUCTIONS}]
-    while True:
-        target_text = input("> ")
-        target_embedding = create_embedding_for_text(target_text)
-        similar_results = find_similar(embeddings, target_embedding)
-        messages.append({
-            "role":
-            "user",
-            "content":
-            target_text + "\nRELEVANT PASSAGES FROM DOCUMENTS: " +
-            json.dumps(similar_results)
-        })
-        completion = openai.chat.completions.create(model=CHAT_MODEL,
-                                                    messages=messages)
-        assistant_reply = completion.choices[0].message.content
-        messages.append({"role": "assistant", "content": assistant_reply})
-        print("\n" + assistant_reply + "\n")
+    target_embedding = create_embedding_for_text(message)
+    similar_results = find_similar(embeddings, target_embedding)
+    messages.append({
+        "role":
+        "user",
+        "content":
+        message + "\nRELEVANT PASSAGES FROM DOCUMENTS: " +
+        json.dumps(similar_results)
+    })
+    completion = openai.chat.completions.create(model=CHAT_MODEL,
+                                                messages=messages)
+    assistant_reply = completion.choices[0].message.content
+    messages.append({"role": "assistant", "content": assistant_reply})
 
-
-def main():
-    process_embeddings()
-    interactive_chat()
-
-
-if __name__ == "__main__":
-    main()
+    return messages
