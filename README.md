@@ -1,6 +1,6 @@
 # Retrieval-augmented chatbot starter
 
-This is a simplified starter template package for a project that uses OpenAI embeddings and chat completions. It reads text from a file, splits it into chunks, creates embeddings, and starts an interactive chat session that finds the most similar text passages.
+This is a simplified starter template for a Retrieval-Augmented Generation (RAG) project that uses a custom semantic search with OpenAI embeddings. It reads text from a file, splits it into chunks, creates embeddings, and starts an interactive chat session (OpenAI completions) that finds the most similar text passages.
 
 ## Setup
 
